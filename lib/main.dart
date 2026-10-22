@@ -1,8 +1,10 @@
+import 'package:agora_project/config/app_config.dart';
 import 'package:agora_project/home_screen.dart';
-import 'package:agora_project/live_streaming_screen.dart';
 import 'package:flutter/material.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AppConfig.init();
   runApp(const MyApp());
 }
 

@@ -8,6 +8,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart' hide LogLevel;
 import 'package:agora_chat_sdk/agora_chat_sdk.dart';
 
+import 'package:agora_project/config/app_config.dart';
+import 'package:agora_project/services/token_service.dart';
 import 'package:agora_project/widgets/floating_reaction_widget.dart';
 import 'package:agora_project/model/live_comment_model.dart';
 import 'package:agora_project/stream_log_entry.dart';
@@ -35,16 +37,15 @@ class LiveStreamingScreen extends StatefulWidget {
 }
 
 class _LiveStreamingScreenState extends State<LiveStreamingScreen> {
-  // Agora App Configuration
-  final String appId = "b532b13ca4da47bb9bed248c3dda673f";
-  final String chatAppKey = "41200080941#200113715";
-  final String userId = "user1";
+  // Agora App Configuration from secure environment
+  String get appId => AppConfig.appId;
+  String get chatAppKey => AppConfig.chatAppKey;
+  String get userId =>
+      widget.username.isNotEmpty ? widget.username : AppConfig.userId;
 
-  // Tokens
-  final String chatToken =
-      "007eJxTYLAtjls/y6v/dOIn22Wf34lYmF6s9v7o2s36q+dM65d+/uRbgSHJ1NgoydA4OdEkJdHEPCnJMik1xcjEItk4JSXRxDzNOU/4fG336I1A/653MzAwsDIwMjAygvA/MBiAgAEAU4kjfA==";
-  final String token =
-      "007eJxTYEhZ+DJhj1VUdNq/K/O60s4u931xiXFlyewYQ+evRhkyunsUGJJMjY2SDI2TE01SEk3Mk5Isk1JTjEwsko1TUhLNzI3TVghez2oIZGTQ5nBiZGSAQBCfhSEktbiEgQEAon0fyQ==";
+  // Dynamic / Environment Tokens
+  String get chatToken => AppConfig.chatToken;
+  String get token => AppConfig.token;
 
   // RTC Engine state
   RtcEngine? _engine;
@@ -119,7 +120,7 @@ class _LiveStreamingScreenState extends State<LiveStreamingScreen> {
       params: {
         'channel': widget.channelName,
         'user': widget.username,
-        'appId': appId,
+        'appId': AppConfig.maskedAppId,
       },
     );
 
@@ -174,7 +175,23 @@ class _LiveStreamingScreenState extends State<LiveStreamingScreen> {
       }
     }
 
-    // 2. Initialize RtcEngine
+    // 2. Validate configuration
+    if (appId.isEmpty) {
+      _log(
+        "Agora Config",
+        "AGORA_APP_ID is missing. Check your .env file.",
+        level: LogLevel.error,
+      );
+      if (mounted) {
+        setState(() {
+          _agoraErrorMessage =
+              "AGORA_APP_ID not found. Please configure your .env file.";
+        });
+      }
+      return;
+    }
+
+    // 3. Initialize RtcEngine
     try {
       _engine = createAgoraRtcEngine();
       await _engine!.initialize(
@@ -330,8 +347,14 @@ class _LiveStreamingScreenState extends State<LiveStreamingScreen> {
 
     // 7. Join Channel
     try {
+      final activeRtcToken = await TokenService.getRtcToken(
+        channelName: widget.channelName,
+        uid: '0',
+        role: widget.isHost ? 'publisher' : 'subscriber',
+      );
+
       await _engine!.joinChannel(
-        token: token,
+        token: activeRtcToken,
         channelId: widget.channelName,
         uid: 0,
         options: ChannelMediaOptions(
@@ -361,7 +384,8 @@ class _LiveStreamingScreenState extends State<LiveStreamingScreen> {
     try {
       final options = ChatOptions.withAppKey(chatAppKey, autoLogin: false);
       await ChatClient.getInstance.init(options);
-      await ChatClient.getInstance.loginWithToken(userId, chatToken);
+      final activeChatToken = await TokenService.getChatToken(userId: userId);
+      await ChatClient.getInstance.loginWithToken(userId, activeChatToken);
       _log("Chat SDK", "Logged in as $userId", level: LogLevel.success);
       if (mounted) {
         setState(() => _chatLoggedIn = true);
@@ -538,7 +562,7 @@ class _LiveStreamingScreenState extends State<LiveStreamingScreen> {
         channelName: widget.channelName,
         isHost: widget.isHost,
         username: widget.username,
-        appId: appId,
+        appId: AppConfig.maskedAppId,
         token: token,
         connectionStateStr: _connectionStateStr,
         dataStreamId: _dataStreamId,

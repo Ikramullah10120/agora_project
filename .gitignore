@@ -46,3 +46,37 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Environment and Secret configuration files
+.env
+.env.*
+!.env.example
+!.env.template
+
+# Android Keystores & Signing Secrets
+*.keystore
+*.jks
+key.properties
+local.properties
+
+# iOS Certificates & Provisioning Profiles
+*.p12
+*.cer
+*.mobileprovision
+*.key
+*.pem
+ExportOptions.plist
+
+# Cloud and Firebase Service credentials
+google-services.json
+GoogleService-Info.plist
+*service-account*.json
+firebase-debug.log
+firebase.json
+
+# Backend / Node dependencies & environment (if token server placed in repo)
+node_modules/
+backend_token_server/.env
+backend_token_server/.env.*
+!backend_token_server/.env.example
+
